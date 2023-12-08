@@ -1,0 +1,23 @@
+{
+  "name": "42645291--safarov-akmal",
+  "version": "1.0.0",
+  "description": "[Тестовое задание](https://www.notion.so/fundraiseup/ff0f316ee59e49a291cf9ccf59011069). \r Прочитайте его до конца перед началом выполнения. Если возникли вопросы, вы можете их задать рекрутеру, он передаст их разработчикам.",
+  "main": "index.js",
+  "scripts": {
+    "app": "tsc && node ./dist/app/app.js",
+    "sync": "tsc && node ./dist/sync/sync.js",
+    "sync:reindex": "tsc && node ./dist/sync/sync.js --full-reindex"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "3.1.0"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^8.3.1",
+    "dotenv": "^16.3.1",
+    "mongoose": "^8.0.2",
+    "ts-node": "^10.9.1"
+  }
+}
