@@ -1,0 +1,1 @@
+interface AnonymizedCustomer extends Customer {}

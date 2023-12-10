@@ -21,12 +21,13 @@ export function generateCustomers(): Customer[] {
   return customers;
 }
 
-export function anonymizeCustomers(customers: Customer[]): Customer[] {
-  console.log("Anonymizing customers...");
-  const customersAnonymized: Customer[] = [];
+export function anonymizeCustomers(customers: Customer[]): AnonymizedCustomer[] {
+  // console.log("Anonymizing customers...");
+  const customersAnonymized: AnonymizedCustomer[] = [];
   try {
     for (const customer of customers) {
       customersAnonymized.push({
+        ...customer,
         firstName: hashStringToPseudoRandom(customer.firstName),
         lastName: hashStringToPseudoRandom(customer.lastName),
         email: `${hashStringToPseudoRandom(customer.email.split("@")[0])}@${

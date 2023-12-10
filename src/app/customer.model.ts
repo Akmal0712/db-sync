@@ -13,8 +13,11 @@ const customerSchema = new Schema(
       state: { type: String, required: true },
       country: { type: String, required: true },
     },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    }
   },
-  { timestamps: true },
 );
 
 customerSchema.index({ createdAt: 1 });
