@@ -18,6 +18,7 @@
 
 В mongodb есть коллекция `customers`, где создаются документы такого вида.
 
+<pre>
 {
   "_id": ObjectId("64155ece0ac406903b7eb4a1"),
   "firstName": "Cindy",
@@ -33,7 +34,8 @@
   },
   "createdAt": ISODate("2022-12-11T19:08:41.683Z")
 }
-
+</pre>
+<pre>
 Рядом находится коллекция customers_anonymised. Куда попадают такие документы.
 {
   "_id": ObjectId("64155ece0ac406903b7eb4a1"),
@@ -50,6 +52,7 @@
   },
   "createdAt": ISODate("2023-03-20T19:08:41.683Z")
 }
+</pre>
 
 ## Приложение `app.ts`
 
