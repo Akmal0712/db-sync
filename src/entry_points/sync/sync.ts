@@ -1,4 +1,4 @@
-import { mongodb } from "../storage/mongodb";
+import { mongodb } from "../../storage/mongodb";
 import { reindex, realTimeSync } from "./modes";
 import "dotenv/config";
 

@@ -1,6 +1,6 @@
 import CustomerModel from "../app/customer.model";
 import CustomerAnonymizedModel from "./customers_anonymised.model";
-import { anonymizeCustomers } from "../mods/utils";
+import { anonymizeCustomers } from "./anonymizeCustomers";
 import CursorModel from "./cursor.model";
 import mongoose from "mongoose";
 

@@ -1,6 +1,6 @@
-import { mongodb } from "../storage/mongodb";
+import { mongodb } from "../../storage/mongodb";
 import Customer from "./customer.model";
-import { generateCustomers } from "../mods/utils";
+import { generateCustomers } from "./generateCustomers";
 import "dotenv/config";
 
 
