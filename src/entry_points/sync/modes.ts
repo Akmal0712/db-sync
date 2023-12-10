@@ -10,15 +10,18 @@ export async function reindex() {
   const session = await mongoose.startSession();
   session.startTransaction();
 
-  const limit = 1000;
-  const batchSize = 1000;
+  const lte = (await CustomerAnonymizedModel.findOne({}).sort({ createdAt: -1 }))?.createdAt || new Date();
   let cursorFromDb = await CursorModel.findOne({});
   if (!cursorFromDb) {
-    await CustomerAnonymizedModel.deleteMany();
     cursorFromDb = await CursorModel.create({});
+    await CustomerAnonymizedModel.deleteMany({ createdAt: { $lte: lte } });
   }
 
-  let { skip, lte } = cursorFromDb;
+  // search settings
+  let { skip } = cursorFromDb;
+  const limit = 1000;
+  const batchSize = 1000;
+
   let customers: Customer[] = [];
   const cursor = await CustomerModel.find({
     createdAt: {
@@ -65,8 +68,7 @@ export async function realTimeSync() {
   let doc = null;
   let startTime = Date.now();
 
-  await CursorModel.findOneAndUpdate({}, { lte: Date.now() }); // update cursor to current time for real time sync
-  console.log("Watching for changes...");
+  await console.log("Watching for changes...");
   while (!changeStream.closed) {
     const timeoutPromise = new Promise((resolve) =>
       setTimeout(() => resolve(null), 50),
