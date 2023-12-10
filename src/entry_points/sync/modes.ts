@@ -1,6 +1,6 @@
 import CustomerModel from "../app/customer.model";
 import CustomerAnonymizedModel from "./customers_anonymised.model";
-import { anonymizeCustomers } from "./anonymizeCustomers";
+import { anonymizeCustomers } from "./anonymizer";
 import CursorModel from "./cursor.model";
 import mongoose from "mongoose";
 
@@ -10,7 +10,9 @@ export async function reindex() {
   const session = await mongoose.startSession();
   session.startTransaction();
 
-  const lte = (await CustomerAnonymizedModel.findOne({}).sort({ createdAt: -1 }))?.createdAt || new Date();
+  const lte =
+    (await CustomerAnonymizedModel.findOne({}).sort({ createdAt: -1 }))
+      ?.createdAt || new Date();
   let cursorFromDb = await CursorModel.findOne({});
   if (!cursorFromDb) {
     cursorFromDb = await CursorModel.create({});

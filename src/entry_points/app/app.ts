@@ -1,6 +1,6 @@
 import { mongodb } from "../../storage/mongodb";
 import Customer from "./customer.model";
-import { generateCustomers } from "./generateCustomers";
+import { generateCustomers } from "./generator";
 import "dotenv/config";
 
 (async () => {
