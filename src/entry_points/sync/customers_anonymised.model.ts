@@ -20,6 +20,6 @@ const customerAnonymizedSchema = new Schema(
 const CustomerAnonymizedModel = mongoose.model(
   "CustomerAnonymized",
   customerAnonymizedSchema,
-    "customers_anonymized",
+  "customers_anonymized",
 );
 export default CustomerAnonymizedModel;

@@ -3,7 +3,6 @@ import Customer from "./customer.model";
 import { generateCustomers } from "./generateCustomers";
 import "dotenv/config";
 
-
 (async () => {
   try {
     await mongodb();
