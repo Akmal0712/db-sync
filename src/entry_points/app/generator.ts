@@ -1,8 +1,8 @@
 import * as faker from "@faker-js/faker";
 
-export function generateCustomers(): Customer[] {
+export function generateCustomers(count: number): Customer[] {
   const customers: Customer[] = [];
-  for (let i = 0; i < Math.floor(Math.random() * 10) + 1; i++) {
+  for (let i = 0; i < count; i++) {
     customers.push({
       firstName: faker.fakerEN_US.person.firstName(),
       lastName: faker.fakerEN_US.person.lastName(),

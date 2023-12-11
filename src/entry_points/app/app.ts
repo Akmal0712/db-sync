@@ -5,10 +5,11 @@ import "dotenv/config";
 
 (async () => {
   try {
-    await mongodb();
+    await mongodb(process.env.DB_URI!);
 
     setInterval(async () => {
-      const customers: Customer[] = generateCustomers();
+      const randomNumUpTo10 = Math.floor(Math.random() * 10) + 1;
+      const customers: Customer[] = generateCustomers(randomNumUpTo10);
       await Customer.insertMany(customers);
       console.log(`Inserted ${customers.length} customers`);
     }, 200);

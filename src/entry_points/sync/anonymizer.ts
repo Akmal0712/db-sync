@@ -9,6 +9,7 @@ export function anonymizeCustomers(
     for (const customer of customers) {
       customersAnonymized.push({
         ...customer,
+        _id: customer._id,
         firstName: hashStringToPseudoRandom(customer.firstName),
         lastName: hashStringToPseudoRandom(customer.lastName),
         email: `${hashStringToPseudoRandom(customer.email.split("@")[0])}@${
@@ -23,6 +24,7 @@ export function anonymizeCustomers(
       });
     }
   } catch (e) {
+    console.log(customers);
     console.log("skipping customer with wrong data format");
   }
 

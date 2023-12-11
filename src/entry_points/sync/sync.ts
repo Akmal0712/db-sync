@@ -4,7 +4,7 @@ import "dotenv/config";
 
 (async () => {
   try {
-    await mongodb();
+    await mongodb(process.env.DB_URI!);
 
     const mode = process.argv[2];
     if (mode === "--full-reindex") {

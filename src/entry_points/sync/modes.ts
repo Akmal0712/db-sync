@@ -64,8 +64,11 @@ export async function reindex() {
 }
 
 export async function realTimeSync() {
-  const documents = [];
-  const changeStream = CustomerModel.watch();
+  const documentsForUpdate = [];
+  const documentsForInsert = [];
+  const changeStream = CustomerModel.watch([], {
+    fullDocument: "updateLookup",
+  });
   let pendingDocument = changeStream.next();
   let doc = null;
   let startTime = Date.now();
@@ -81,24 +84,36 @@ export async function realTimeSync() {
 
     doc = await Promise.race([pendingDocument, timeoutPromise]);
     if (doc) {
-      documents.push(doc.fullDocument);
+      doc.operationType === "insert"
+        ? documentsForInsert.push(doc.fullDocument)
+        : documentsForUpdate.push(doc.fullDocument);
     }
 
-    if (documents.length >= 1000) {
-      await anonymizeAndInsertCustomers(documents);
+    if (documentsForInsert.length + documentsForUpdate.length >= 1000) {
+      await anonymizeAndProcess(documentsForInsert, documentsForUpdate);
 
-      console.log(`Inserted ${documents.length} documents.`);
-      documents.length = 0;
+      console.log(
+        `Processed ${
+          documentsForInsert.length + documentsForUpdate.length
+        } documents.`,
+      );
+      documentsForInsert.length = 0;
+      documentsForUpdate.length = 0;
       startTime = Date.now();
     }
 
     const elapsedTime = Date.now() - startTime;
     if (elapsedTime >= 1000) {
-      if (documents.length > 0) {
-        await anonymizeAndInsertCustomers(documents);
+      if (documentsForInsert.length + documentsForUpdate.length > 0) {
+        await anonymizeAndProcess(documentsForInsert, documentsForUpdate);
 
-        console.log(`Inserted ${documents.length} documents by timeout...`);
-        documents.length = 0;
+        console.log(
+          `Processed ${
+            documentsForInsert.length + documentsForUpdate.length
+          } documents by timeout...`,
+        );
+        documentsForInsert.length = 0;
+        documentsForUpdate.length = 0;
       }
 
       startTime = Date.now();
@@ -107,14 +122,31 @@ export async function realTimeSync() {
   console.log("FINISHED");
 }
 
-async function anonymizeAndInsertCustomers(customers: Customer[]) {
+async function anonymizeAndProcess(
+  customersForInsert: Customer[],
+  customersForUpdate: Customer[],
+) {
   try {
-    if (customers.length === 0) return;
+    if (customersForInsert.length > 0) {
+      const anonymizedCustomers: AnonymizedCustomer[] =
+        anonymizeCustomers(customersForInsert);
+      await CustomerAnonymizedModel.insertMany(anonymizedCustomers);
+    }
 
-    const anonymizedCustomers: AnonymizedCustomer[] =
-      anonymizeCustomers(customers);
-    await CustomerAnonymizedModel.insertMany(anonymizedCustomers);
+    if (customersForUpdate.length > 0) {
+      const anonymizedCustomers: AnonymizedCustomer[] =
+        anonymizeCustomers(customersForUpdate);
+
+      await Promise.all(
+        anonymizedCustomers.map(async (customer) => {
+          await CustomerAnonymizedModel.updateOne(
+            { _id: customer._id },
+            customer,
+          );
+        }),
+      );
+    }
   } catch (error) {
-    console.log(`Error on inserting customers: ${error.message}`);
+    console.log(`Error on processing customers: ${error.message}`);
   }
 }
