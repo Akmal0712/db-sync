@@ -4,6 +4,11 @@ import { anonymizeCustomers } from "./anonymizer";
 import CursorModel from "./cursor.model";
 import mongoose from "mongoose";
 
+type ChangeStreamDocument<T> = {
+  operationType: "insert" | "update";
+  fullDocument: T;
+} | null;
+
 export async function reindex() {
   console.log("Reindexing...");
   const startTime = Date.now();
