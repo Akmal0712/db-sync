@@ -13,7 +13,6 @@ export async function reindex() {
   console.log("Reindexing...");
   const startTime = Date.now();
   const session = await mongoose.startSession();
-  session.startTransaction();
 
   const lte =
     (await CustomerAnonymizedModel.findOne({}).sort({ createdAt: -1 }))
@@ -44,25 +43,27 @@ export async function reindex() {
     if (customers.length === limit || (doc === null && customers.length > 0)) {
       const anonymizedCustomers: AnonymizedCustomer[] =
         anonymizeCustomers(customers);
-      try {
-        await CustomerAnonymizedModel.insertMany(anonymizedCustomers);
-        await CursorModel.updateOne({}, { skip: skip + customers.length });
 
-        await session.commitTransaction();
+      await session.withTransaction(async () => {
+        await CustomerAnonymizedModel.insertMany(anonymizedCustomers, {
+          session,
+        });
+        await CursorModel.updateOne(
+          {},
+          { skip: skip + customers.length },
+          { session },
+        );
         skip += customers.length;
         console.log(
           `Inserted ${customers.length} customers. Total inserted documents: ${skip}`,
         );
 
         customers.length = 0;
-      } catch (error) {
-        await session.abortTransaction();
-        console.log(error.message);
-      } finally {
-        await session.endSession();
-      }
+      });
     }
   }
+
+  await session.endSession();
 
   await CursorModel.deleteMany({});
   console.log(`Finished in ${Date.now() - startTime} ms.`);
@@ -75,7 +76,7 @@ export async function realTimeSync() {
     fullDocument: "updateLookup",
   });
   let pendingDocument = changeStream.next();
-  let doc = null;
+  let doc: ChangeStreamDocument<Customer> = null;
   let startTime = Date.now();
 
   await console.log("Watching for changes...");
