@@ -12,9 +12,10 @@ export function generateCustomers(count: number): Customer[] {
         line2: faker.fakerEN_US.location.secondaryAddress(),
         postcode: faker.fakerEN_US.location.zipCode(),
         city: faker.fakerEN_US.location.city(),
-        state: faker.fakerEN_US.location.state(),
-        country: faker.fakerEN_US.location.country(),
+        state: faker.fakerEN_US.location.state({ abbreviated: true }),
+        country: faker.fakerEN_US.location.countryCode(),
       },
+      createdAt: new Date(),
     });
   }
 

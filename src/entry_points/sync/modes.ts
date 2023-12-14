@@ -1,156 +1,112 @@
 import CustomerModel from "../app/customer.model";
-import CustomerAnonymizedModel from "./customers_anonymised.model";
+import CustomerAnonymizedModel from "./CustomersAnonymised.model";
 import { anonymizeCustomers } from "./anonymizer";
-import CursorModel from "./cursor.model";
-import mongoose from "mongoose";
-
-type ChangeStreamDocument<T> = {
-  operationType: "insert" | "update";
-  fullDocument: T;
-} | null;
+import { ChangeStreamDocument } from "mongodb";
+import ResumeTokenModel from "./ResumeToken.model";
 
 export async function reindex() {
   console.log("Reindexing...");
-  const startTime = Date.now();
-  const session = await mongoose.startSession();
+  console.time("Reindexing");
 
   const lte =
     (await CustomerAnonymizedModel.findOne({}).sort({ createdAt: -1 }))
       ?.createdAt || new Date();
-  let cursorFromDb = await CursorModel.findOne({});
-  if (!cursorFromDb) {
-    cursorFromDb = await CursorModel.create({});
-    await CustomerAnonymizedModel.deleteMany({ createdAt: { $lte: lte } });
-  }
 
-  // search settings
-  let { skip } = cursorFromDb;
+  await CustomerAnonymizedModel.collection.drop();
+
   const limit = 1000;
   const batchSize = 1000;
 
-  let customers: Customer[] = [];
-  const cursor = await CustomerModel.find({
+  const cursor = CustomerModel.find({
     createdAt: {
       $lte: lte,
     },
   })
     .sort({ _id: 1 })
-    .cursor({ batchSize, skip });
+    .cursor({ batchSize });
 
-  for (let doc; doc !== null; ) {
-    doc = await cursor.next();
-    if (doc) customers.push(doc);
-    if (customers.length === limit || (doc === null && customers.length > 0)) {
-      const anonymizedCustomers: AnonymizedCustomer[] =
-        anonymizeCustomers(customers);
+  const customers: Customer[] = [];
+  for await (const doc of cursor) {
+    customers.push(doc as Customer);
+    console.log(doc._id);
 
-      await session.withTransaction(async () => {
-        await CustomerAnonymizedModel.insertMany(anonymizedCustomers, {
-          session,
-        });
-        await CursorModel.updateOne(
-          {},
-          { skip: skip + customers.length },
-          { session },
-        );
-        skip += customers.length;
-        console.log(
-          `Inserted ${customers.length} customers. Total inserted documents: ${skip}`,
-        );
-
-        customers.length = 0;
-      });
+    if (customers.length === limit) {
+      await CustomerAnonymizedModel.insertMany(anonymizeCustomers(customers));
+      console.log(`Total inserted ${customers.length} customers.`);
+      customers.length = 0;
     }
   }
 
-  await session.endSession();
+  if (customers.length > 0) {
+    await CustomerAnonymizedModel.insertMany(customers);
+    console.log(`Total inserted ${customers.length} customers.`);
+  }
 
-  await CursorModel.deleteMany({});
-  console.log(`Finished in ${Date.now() - startTime} ms.`);
+  console.timeEnd("Reindexing");
+  console.log("Finished.");
 }
 
 export async function realTimeSync() {
-  const documentsForUpdate = [];
-  const documentsForInsert = [];
-  const changeStream = CustomerModel.watch([], {
-    fullDocument: "updateLookup",
-  });
-  let pendingDocument = changeStream.next();
-  let doc: ChangeStreamDocument<Customer> = null;
+  const documents = [];
   let startTime = Date.now();
 
-  await console.log("Watching for changes...");
+  const resumeToken = await ResumeTokenModel.findOne();
+  const options = resumeToken
+    ? { fullDocument: "updateLookup", resumeAfter: resumeToken }
+    : { fullDocument: "updateLookup" };
+  const changeStream = CustomerModel.collection.watch([], options);
+
+  console.log("Watching for changes...");
   while (!changeStream.closed) {
-    const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve(null), 50),
-    );
-    if (doc) {
-      pendingDocument = changeStream.next();
-    }
+    const doc: ChangeStreamDocument = await changeStream.tryNext();
 
-    doc = await Promise.race([pendingDocument, timeoutPromise]);
-    if (doc) {
-      doc.operationType === "insert"
-        ? documentsForInsert.push(doc.fullDocument)
-        : documentsForUpdate.push(doc.fullDocument);
-    }
+    if (doc?.operationType === "insert" || doc?.operationType === "update")
+      documents.push(doc.fullDocument);
 
-    if (documentsForInsert.length + documentsForUpdate.length >= 1000) {
-      await anonymizeAndProcess(documentsForInsert, documentsForUpdate);
+    if (documents.length >= 14) {
+      await anonymizeAndProcess(documents);
 
-      console.log(
-        `Processed ${
-          documentsForInsert.length + documentsForUpdate.length
-        } documents.`,
-      );
-      documentsForInsert.length = 0;
-      documentsForUpdate.length = 0;
+      console.log(`Processed ${documents.length} documents.`);
+      documents.length = 0;
+      await ResumeTokenModel.findOneAndUpdate({}, changeStream.resumeToken, {
+        upsert: true,
+      });
       startTime = Date.now();
     }
 
     const elapsedTime = Date.now() - startTime;
     if (elapsedTime >= 1000) {
-      if (documentsForInsert.length + documentsForUpdate.length > 0) {
-        await anonymizeAndProcess(documentsForInsert, documentsForUpdate);
+      console.log("Timeout...");
+      if (documents.length > 0) {
+        await anonymizeAndProcess(documents);
 
-        console.log(
-          `Processed ${
-            documentsForInsert.length + documentsForUpdate.length
-          } documents by timeout...`,
-        );
-        documentsForInsert.length = 0;
-        documentsForUpdate.length = 0;
+        console.log(`Processed ${documents.length} documents by timeout...`);
+        documents.length = 0;
+        await ResumeTokenModel.findOneAndUpdate({}, changeStream.resumeToken, {
+          upsert: true,
+        });
       }
-
       startTime = Date.now();
     }
   }
-  console.log("FINISHED");
+
+  console.log("Change Stream closed");
 }
 
-async function anonymizeAndProcess(
-  customersForInsert: Customer[],
-  customersForUpdate: Customer[],
-) {
+async function anonymizeAndProcess(documents: Customer[]) {
   try {
-    if (customersForInsert.length > 0) {
+    if (documents.length > 0) {
       const anonymizedCustomers: AnonymizedCustomer[] =
-        anonymizeCustomers(customersForInsert);
-      await CustomerAnonymizedModel.insertMany(anonymizedCustomers);
-    }
+        anonymizeCustomers(documents);
+      const bulkItems = anonymizedCustomers.map((doc) => ({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: { $set: doc },
+          upsert: true,
+        },
+      }));
 
-    if (customersForUpdate.length > 0) {
-      const anonymizedCustomers: AnonymizedCustomer[] =
-        anonymizeCustomers(customersForUpdate);
-
-      await Promise.all(
-        anonymizedCustomers.map(async (customer) => {
-          await CustomerAnonymizedModel.updateOne(
-            { _id: customer._id },
-            customer,
-          );
-        }),
-      );
+      await CustomerAnonymizedModel.bulkWrite(bulkItems);
     }
   } catch (error) {
     console.log(`Error on processing customers: ${error.message}`);

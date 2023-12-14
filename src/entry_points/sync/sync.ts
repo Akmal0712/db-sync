@@ -1,11 +1,12 @@
 import { mongodb } from "../../storage/mongodb";
 import { reindex, realTimeSync } from "./modes";
 import "dotenv/config";
+import { Mongoose } from "mongoose";
 
+let mongooseClient: Mongoose;
 (async () => {
   try {
-    await mongodb(process.env.DB_URI!);
-
+    mongooseClient = await mongodb(process.env.DB_URI);
     const mode = process.argv[2];
     if (mode === "--full-reindex") {
       await reindex();
@@ -16,5 +17,6 @@ import "dotenv/config";
     await realTimeSync();
   } catch (error) {
     console.log(error.message);
+    await mongooseClient.disconnect();
   }
 })();
