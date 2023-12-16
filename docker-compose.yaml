@@ -1,0 +1,25 @@
+version: "3.6"
+
+services:
+  node-app-generator:
+    container_name: node-app-generator
+    build: .
+    env_file: .env
+    depends_on:
+      - node-db-realtimesync
+    command: npm run app
+
+  node-db-realtimesync:
+    container_name: node-db-realtimesync
+    build: .
+    env_file: .env
+    depends_on:
+      - node-app-generator
+    command: npm run sync
+
+  node-db-sync:
+    container_name: node-db-sync
+    build: .
+    env_file: .env
+    command: npm run sync:reindex
+
